@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 import { useBooks } from "@/lib/context/BooksContext";
 
 const NAV = [
@@ -71,6 +73,17 @@ const NAV = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { books, goal, setGoalOpen, searchQuery, setSearchQuery } = useBooks();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    supabaseBrowser.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session?.access_token) return;
+      const res = await fetch("/api/admin/me", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.ok) setIsAdmin(true);
+    });
+  }, []);
 
   const counts = {
     all: books.length,
@@ -141,6 +154,25 @@ export default function Sidebar() {
       </nav>
 
       <div className="flex-1" />
+
+      {/* Admin link */}
+      {isAdmin && (
+        <div className="border-t border-bs-border pt-2 pb-1">
+          <Link
+            href="/admin"
+            className={`flex items-center gap-[10px] px-[18px] py-[9px] text-[13px] border-l-2 transition-all ${
+              pathname === "/admin"
+                ? "text-bs-accent border-bs-accent bg-bs-accent/[0.06] font-medium"
+                : "text-bs-muted border-transparent hover:bg-black/[0.04] hover:text-bs-text"
+            }`}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-[15px] h-[15px] shrink-0">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            Admin Panel
+          </Link>
+        </div>
+      )}
 
       {/* Reading goal */}
       <div className="border-t border-bs-border px-[18px] pt-[14px] pb-[14px]">
