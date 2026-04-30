@@ -38,6 +38,7 @@ export default function AdminPage() {
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [adminEmail, setAdminEmail] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("users");
 
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -53,11 +54,17 @@ export default function AdminPage() {
   const [addError, setAddError] = useState("");
 
   useEffect(() => {
-    supabaseBrowser.auth.getSession().then(({ data: { session } }) => {
-      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-      if (session?.access_token && session.user?.email === adminEmail) {
-        setToken(session.access_token);
-        setIsAdmin(true);
+    supabaseBrowser.auth.getSession().then(async ({ data: { session } }) => {
+      const t = session?.access_token ?? null;
+      if (t) {
+        const res = await fetch("/api/admin/me", {
+          headers: { Authorization: `Bearer ${t}` },
+        });
+        if (res.ok) {
+          setToken(t);
+          setIsAdmin(true);
+          setAdminEmail(session.user?.email ?? null);
+        }
       }
       setReady(true);
     });
@@ -242,7 +249,7 @@ export default function AdminPage() {
                       <tr key={u.id} className="border-b border-bs-border last:border-0 hover:bg-bs-tag/20 transition-colors">
                         <td className="px-5 py-3 text-bs-text font-medium">
                           {u.email ?? "—"}
-                          {u.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
+                          {u.email === adminEmail && (
                             <span className="ml-2 text-[10px] font-semibold bg-bs-accent/15 text-bs-accent px-[6px] py-[2px] rounded-full">
                               Admin
                             </span>
