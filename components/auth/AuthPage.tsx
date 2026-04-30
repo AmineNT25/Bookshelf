@@ -1,9 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-
-const ADMIN_EMAIL = "admin@bookshelf.com";
-const ADMIN_PASSWORD = "admin02112005";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
 type Tab = "login" | "signup";
 type View = "tabs" | "forgot" | "forgot-sent" | "signup-success";
@@ -61,6 +59,8 @@ export default function AuthPage() {
   const [loginPw, setLoginPw] = useState("");
   const [showLoginPw, setShowLoginPw] = useState(false);
   const [loginErrors, setLoginErrors] = useState<Record<string, string>>({});
+  const [loginServerError, setLoginServerError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
 
   // Signup
   const [first, setFirst] = useState("");
@@ -72,6 +72,8 @@ export default function AuthPage() {
   const [showSignupPw2, setShowSignupPw2] = useState(false);
   const [terms, setTerms] = useState(false);
   const [signupErrors, setSignupErrors] = useState<Record<string, string>>({});
+  const [signupServerError, setSignupServerError] = useState("");
+  const [signupLoading, setSignupLoading] = useState(false);
   const [pwStrength, setPwStrength] = useState(0);
 
   // Forgot
@@ -89,21 +91,22 @@ export default function AuthPage() {
   const strengthColors = ["#e05c5c", "#e07a1a", "#c1a20e", "#3a9a5a"];
   const strengthLabels = ["Weak", "Fair", "Good", "Strong"];
 
-  function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) errs.email = "Please enter a valid email";
     if (!loginPw) errs.pw = "Please enter your password";
     if (Object.keys(errs).length) { setLoginErrors(errs); return; }
-    if (loginEmail !== ADMIN_EMAIL || loginPw !== ADMIN_PASSWORD) {
-      setLoginErrors({ pw: "Incorrect email or password" });
-      return;
-    }
     setLoginErrors({});
+    setLoginServerError("");
+    setLoginLoading(true);
+    const { error } = await supabaseBrowser.auth.signInWithPassword({ email: loginEmail, password: loginPw });
+    setLoginLoading(false);
+    if (error) { setLoginServerError(error.message); return; }
     router.push("/library");
   }
 
-  function handleSignup(e: React.FormEvent) {
+  async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!first.trim()) errs.first = "Required";
@@ -114,6 +117,18 @@ export default function AuthPage() {
     if (!terms) errs.terms = "Please accept the terms";
     if (Object.keys(errs).length) { setSignupErrors(errs); return; }
     setSignupErrors({});
+    setSignupServerError("");
+    setSignupLoading(true);
+    const { error } = await supabaseBrowser.auth.signUp({
+      email: signupEmail,
+      password: signupPw,
+      options: { data: { full_name: `${first.trim()} ${last.trim()}` } },
+    });
+    setSignupLoading(false);
+    if (error) { setSignupServerError(error.message); return; }
+    // Clear form
+    setFirst(""); setLast(""); setSignupEmail(""); setSignupPw(""); setSignupPw2("");
+    setTerms(false); setPwStrength(0);
     setView("signup-success");
   }
 
@@ -215,8 +230,9 @@ export default function AuthPage() {
                 Forgot your password?
               </button>
 
-              <button type="submit" className="w-full bg-bs-accent text-white rounded-[10px] py-3 text-[14px] font-semibold mt-[6px] hover:bg-bs-accent-hover hover:-translate-y-px active:translate-y-0 transition-all cursor-pointer">
-                Sign In
+              {loginServerError && <p className={errCls + " mb-3"}>{loginServerError}</p>}
+              <button type="submit" disabled={loginLoading} className="w-full bg-bs-accent text-white rounded-[10px] py-3 text-[14px] font-semibold mt-[6px] hover:bg-bs-accent-hover hover:-translate-y-px active:translate-y-0 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                {loginLoading ? "Signing in…" : "Sign In"}
               </button>
             </form>
           )}
@@ -299,9 +315,10 @@ export default function AuthPage() {
                 </label>
               </div>
               {signupErrors.terms && <p className={errCls + " -mt-2 mb-3"}>{signupErrors.terms}</p>}
+              {signupServerError && <p className={errCls + " mb-3"}>{signupServerError}</p>}
 
-              <button type="submit" className="w-full bg-bs-accent text-white rounded-[10px] py-3 text-[14px] font-semibold mt-[6px] hover:bg-bs-accent-hover hover:-translate-y-px active:translate-y-0 transition-all cursor-pointer">
-                Create Account
+              <button type="submit" disabled={signupLoading} className="w-full bg-bs-accent text-white rounded-[10px] py-3 text-[14px] font-semibold mt-[6px] hover:bg-bs-accent-hover hover:-translate-y-px active:translate-y-0 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                {signupLoading ? "Creating account…" : "Create Account"}
               </button>
             </form>
           )}
@@ -314,8 +331,8 @@ export default function AuthPage() {
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
-              <div className="font-fraunces text-[22px] font-semibold mb-2">Welcome to Bookshelf!</div>
-              <p className="text-[13px] text-bs-muted mb-6 leading-[1.6]">Your account has been created.<br />Ready to start tracking your reading?</p>
+              <div className="font-fraunces text-[22px] font-semibold mb-2">Check your email!</div>
+              <p className="text-[13px] text-bs-muted mb-6 leading-[1.6]">We sent a confirmation link to your inbox.<br />Click it to activate your account, then sign in.</p>
               <button
                 onClick={() => { setView("tabs"); setTab("login"); }}
                 className="bg-bs-accent text-white rounded-[10px] px-7 py-3 text-[14px] font-semibold hover:bg-bs-accent-hover transition-colors cursor-pointer"
