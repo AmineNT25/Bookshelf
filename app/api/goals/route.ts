@@ -4,18 +4,17 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
 
-async function getUserId(): Promise<string> {
+async function getUserId(): Promise<string | null> {
   try {
     const session = await getServerSession(authOptions);
     if (session?.user?.id) return session.user.id;
-  } catch {
-    // getServerSession throws when NEXTAUTH_SECRET is a placeholder
-  }
-  return "admin";
+  } catch {}
+  return null;
 }
 
 export async function GET() {
   const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const year = new Date().getFullYear();
   const { data, error } = await getSupabase()
     .from("reading_goals")
@@ -32,6 +31,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { target } = await req.json();
   const year = new Date().getFullYear();
 

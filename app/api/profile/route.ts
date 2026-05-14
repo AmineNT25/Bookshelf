@@ -6,18 +6,17 @@ import { getSupabase } from "@/lib/supabase";
 
 // Falls back to "admin" when OAuth is not yet configured, matching the pattern
 // used by the books and goals APIs throughout this app.
-async function getUserId(): Promise<string> {
+async function getUserId(): Promise<string | null> {
   try {
     const session = await getServerSession(authOptions);
     if (session?.user?.id) return session.user.id;
-  } catch {
-    // getServerSession throws when NEXTAUTH_SECRET is a placeholder
-  }
-  return "admin";
+  } catch {}
+  return null;
 }
 
 export async function GET() {
   const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { data, error } = await getSupabase()
     .from("profiles")
@@ -31,6 +30,7 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
 
   const payload: Record<string, string | null> = {

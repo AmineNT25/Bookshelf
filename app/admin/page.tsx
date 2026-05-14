@@ -63,7 +63,7 @@ export default function AdminPage() {
         if (res.ok) {
           setToken(t);
           setIsAdmin(true);
-          setAdminEmail(session.user?.email ?? null);
+          setAdminEmail(session?.user?.email ?? null);
         }
       }
       setReady(true);

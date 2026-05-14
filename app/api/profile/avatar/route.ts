@@ -7,18 +7,17 @@ import { getSupabase } from "@/lib/supabase";
 const ALLOWED_TYPES = ["image/jpeg", "image/png"];
 const MAX_BYTES = 2 * 1024 * 1024;
 
-async function getUserId(): Promise<string> {
+async function getUserId(): Promise<string | null> {
   try {
     const session = await getServerSession(authOptions);
     if (session?.user?.id) return session.user.id;
-  } catch {
-    // getServerSession throws when NEXTAUTH_SECRET is a placeholder
-  }
-  return "admin";
+  } catch {}
+  return null;
 }
 
 export async function POST(req: Request) {
   const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;

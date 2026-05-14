@@ -4,19 +4,18 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
 
-async function getUserId(): Promise<string> {
+async function getUserId(): Promise<string | null> {
   try {
     const session = await getServerSession(authOptions);
     if (session?.user?.id) return session.user.id;
-  } catch {
-    // getServerSession throws when NEXTAUTH_SECRET is a placeholder
-  }
-  return "admin";
+  } catch {}
+  return null;
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data, error } = await getSupabase()
     .from("books")
     .select("*")
@@ -31,6 +30,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
 
   // Defense in depth: notes and rating may only be written when the book is finished.
@@ -65,6 +65,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { error } = await getSupabase()
     .from("books")
     .delete()

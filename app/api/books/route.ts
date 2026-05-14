@@ -6,14 +6,12 @@ import { getSupabase } from "@/lib/supabase";
 
 const COLORS = ["#5a3a1a","#1a3a5a","#2a5a2a","#4a2a7a","#6a2a2a","#1a4a4a","#5a1a3a","#3a4a1a"];
 
-async function getUserId(): Promise<string> {
+async function getUserId(): Promise<string | null> {
   try {
     const session = await getServerSession(authOptions);
     if (session?.user?.id) return session.user.id;
-  } catch {
-    // getServerSession throws when NEXTAUTH_SECRET is a placeholder
-  }
-  return "admin";
+  } catch {}
+  return null;
 }
 
 // The client sends human-readable status values like "want_to_read" /
@@ -32,6 +30,7 @@ const STATUS_MAP: Record<string, string> = {
 
 export async function GET() {
   const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data, error } = await getSupabase()
     .from("books")
     .select("*")
@@ -44,6 +43,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
   const title  = typeof body.title  === "string" ? body.title.trim()  : "";
   const author = typeof body.author === "string" ? body.author.trim() : "";
