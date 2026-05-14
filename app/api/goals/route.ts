@@ -1,15 +1,26 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
 
-const ADMIN_USER_ID = "admin";
+async function getUserId(): Promise<string> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) return session.user.id;
+  } catch {
+    // getServerSession throws when NEXTAUTH_SECRET is a placeholder
+  }
+  return "admin";
+}
 
 export async function GET() {
+  const userId = await getUserId();
   const year = new Date().getFullYear();
   const { data, error } = await getSupabase()
     .from("reading_goals")
     .select("*")
-    .eq("user_id", ADMIN_USER_ID)
+    .eq("user_id", userId)
     .eq("year", year)
     .single();
 
@@ -20,13 +31,14 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const userId = await getUserId();
   const { target } = await req.json();
   const year = new Date().getFullYear();
 
   const { data, error } = await getSupabase()
     .from("reading_goals")
     .upsert(
-      { user_id: ADMIN_USER_ID, year, target },
+      { user_id: userId, year, target },
       { onConflict: "user_id,year" }
     )
     .select()

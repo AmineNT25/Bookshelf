@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { useBooks } from "@/lib/context/BooksContext";
 
 export default function TopBar() {
@@ -72,7 +73,7 @@ export default function TopBar() {
                 </button>
                 <div className="h-px bg-bs-border my-1" />
                 <button
-                  onClick={() => handleDropClick(() => router.push("/auth"))}
+                  onClick={() => handleDropClick(() => signOut({ callbackUrl: "/auth" }))}
                   className="flex items-center gap-[9px] w-full px-3 py-[9px] rounded-lg text-[13px] text-bs-accent hover:bg-bs-accent/[0.08] transition-colors cursor-pointer text-left"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-[14px] h-[14px] shrink-0">

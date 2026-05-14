@@ -1,9 +1,20 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
 
-const ADMIN_USER_ID = "admin";
 const COLORS = ["#5a3a1a","#1a3a5a","#2a5a2a","#4a2a7a","#6a2a2a","#1a4a4a","#5a1a3a","#3a4a1a"];
+
+async function getUserId(): Promise<string> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) return session.user.id;
+  } catch {
+    // getServerSession throws when NEXTAUTH_SECRET is a placeholder
+  }
+  return "admin";
+}
 
 // The client sends human-readable status values like "want_to_read" /
 // "currently_reading" / "finished". The existing books.status CHECK constraint
@@ -20,18 +31,19 @@ const STATUS_MAP: Record<string, string> = {
 };
 
 export async function GET() {
+  const userId = await getUserId();
   const { data, error } = await getSupabase()
     .from("books")
     .select("*")
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
-
-  console.log("[GET /api/books] rows:", data?.length ?? 0, "error:", error?.message ?? null, "data:", data);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }
 
 export async function POST(req: Request) {
+  const userId = await getUserId();
   const body = await req.json();
   const title  = typeof body.title  === "string" ? body.title.trim()  : "";
   const author = typeof body.author === "string" ? body.author.trim() : "";
@@ -43,7 +55,7 @@ export async function POST(req: Request) {
   const status    = STATUS_MAP[rawStatus] ?? "want";
 
   const payload: Record<string, unknown> = {
-    user_id: ADMIN_USER_ID,
+    user_id: userId,
     title,
     author,
     genre:       typeof body.genre       === "string" ? body.genre       : "Fiction",
