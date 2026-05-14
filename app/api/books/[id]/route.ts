@@ -1,22 +1,19 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabaseServerClient } from "@/lib/supabase-server";
 
 async function getUserId(): Promise<string | null> {
-  try {
-    const session = await getServerSession(authOptions);
-    if (session?.user?.id) return session.user.id;
-  } catch {}
-  return null;
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id ?? null;
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data, error } = await getSupabase()
+  const supabase = await getSupabaseServerClient();
+  const { data, error } = await supabase
     .from("books")
     .select("*")
     .eq("id", id)
@@ -32,10 +29,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
+  const supabase = await getSupabaseServerClient();
 
   // Defense in depth: notes and rating may only be written when the book is finished.
   if ("notes" in body || "rating" in body) {
-    const { data: current } = await getSupabase()
+    const { data: current } = await supabase
       .from("books")
       .select("status")
       .eq("id", id)
@@ -50,7 +48,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
   }
 
-  const { data, error } = await getSupabase()
+  const { data, error } = await supabase
     .from("books")
     .update(body)
     .eq("id", id)
@@ -66,7 +64,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { error } = await getSupabase()
+  const supabase = await getSupabaseServerClient();
+  const { error } = await supabase
     .from("books")
     .delete()
     .eq("id", id)

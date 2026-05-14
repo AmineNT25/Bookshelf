@@ -1,18 +1,14 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabaseServerClient } from "@/lib/supabase-server";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png"];
 const MAX_BYTES = 2 * 1024 * 1024;
 
 async function getUserId(): Promise<string | null> {
-  try {
-    const session = await getServerSession(authOptions);
-    if (session?.user?.id) return session.user.id;
-  } catch {}
-  return null;
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id ?? null;
 }
 
 export async function POST(req: Request) {
@@ -42,7 +38,8 @@ export async function POST(req: Request) {
   const path = `${userId}/avatar.${ext}`;
   const bytes = await file.arrayBuffer();
 
-  const { error: uploadError } = await getSupabase()
+  const supabase = await getSupabaseServerClient();
+  const { error: uploadError } = await supabase
     .storage
     .from("avatars")
     .upload(path, bytes, { contentType: file.type, upsert: true });
@@ -51,12 +48,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  const { data: { publicUrl } } = getSupabase()
+  const { data: { publicUrl } } = supabase
     .storage
     .from("avatars")
     .getPublicUrl(path);
 
-  await getSupabase()
+  await supabase
     .from("profiles")
     .upsert(
       { id: userId, avatar_url: publicUrl, updated_at: new Date().toISOString() },

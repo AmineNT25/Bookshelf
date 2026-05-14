@@ -1,22 +1,19 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabaseServerClient } from "@/lib/supabase-server";
 
 async function getUserId(): Promise<string | null> {
-  try {
-    const session = await getServerSession(authOptions);
-    if (session?.user?.id) return session.user.id;
-  } catch {}
-  return null;
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id ?? null;
 }
 
 export async function GET() {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const year = new Date().getFullYear();
-  const { data, error } = await getSupabase()
+  const supabase = await getSupabaseServerClient();
+  const { data, error } = await supabase
     .from("reading_goals")
     .select("*")
     .eq("user_id", userId)
@@ -35,7 +32,8 @@ export async function POST(req: Request) {
   const { target } = await req.json();
   const year = new Date().getFullYear();
 
-  const { data, error } = await getSupabase()
+  const supabase = await getSupabaseServerClient();
+  const { data, error } = await supabase
     .from("reading_goals")
     .upsert(
       { user_id: userId, year, target },

@@ -1,24 +1,19 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabaseServerClient } from "@/lib/supabase-server";
 
-// Falls back to "admin" when OAuth is not yet configured, matching the pattern
-// used by the books and goals APIs throughout this app.
 async function getUserId(): Promise<string | null> {
-  try {
-    const session = await getServerSession(authOptions);
-    if (session?.user?.id) return session.user.id;
-  } catch {}
-  return null;
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id ?? null;
 }
 
 export async function GET() {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await getSupabase()
+  const supabase = await getSupabaseServerClient();
+  const { data, error } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", userId)
@@ -44,7 +39,8 @@ export async function PATCH(req: Request) {
   if ("bio"        in body) payload.bio        = body.bio?.trim()        || null;
   if ("avatar_url" in body) payload.avatar_url = body.avatar_url         || null;
 
-  const { data, error } = await getSupabase()
+  const supabase = await getSupabaseServerClient();
+  const { data, error } = await supabase
     .from("profiles")
     .upsert(payload, { onConflict: "id" })
     .select()
